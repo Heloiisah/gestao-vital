@@ -1,11 +1,11 @@
 import { Component, inject, signal } from '@angular/core';
 import { FormsModule } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../auth.service';
 import { LucideHeartPulse } from '@lucide/angular';
 
 @Component({
-  imports: [FormsModule, LucideHeartPulse],
+  imports: [FormsModule, RouterLink, LucideHeartPulse],
   selector: 'app-login-page',
   styleUrl: './login-page.scss',
   templateUrl: './login-page.html',
@@ -17,6 +17,14 @@ export class LoginPage {
   protected readonly password = signal('');
   protected readonly error = signal('');
   protected readonly busy = signal(false);
+  protected readonly demoMode = this.auth.isDemo;
+
+  protected fillDemoCredentials(role: 'farmacia' | 'gestao'): void {
+    if (!this.demoMode) return;
+    this.email.set(role === 'gestao' ? 'gestao@hospital.test' : 'maria@hospital.test');
+    this.password.set('demo123');
+    this.error.set('');
+  }
 
   protected async submit(): Promise<void> {
     this.error.set('');

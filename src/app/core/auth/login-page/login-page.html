@@ -1,1 +1,39 @@
-<main class="login-screen"><section class="login-card"><div class="login-brand"><span class="brand-mark"><svg lucideHeartPulse aria-hidden="true"></svg></span><div><strong>gestão<span>vital</span></strong><small>FARMÁCIA HOSPITALAR</small></div></div><h1>Acesse sua unidade</h1><p>Entre para acompanhar estoque, movimentações e previsões.</p><form (ngSubmit)="submit()"><label class="field-label">E-mail<input name="email" type="email" autocomplete="username" [ngModel]="email()" (ngModelChange)="email.set($event)" required></label><label class="field-label">Senha<input name="password" type="password" autocomplete="current-password" [ngModel]="password()" (ngModelChange)="password.set($event)" required></label>@if (error()) { <p class="login-error" role="alert">{{ error() }}</p> }<button class="button button-primary" type="submit" [disabled]="busy()">{{ busy() ? 'Entrando…' : 'Entrar' }}</button></form><small class="login-foot">A autenticação e as permissões são verificadas pelo servidor.</small></section></main>
+<main class="login-screen">
+  <section class="login-layout" aria-label="Entrar no Gestão Vital">
+    <aside class="login-aside">
+      <a class="login-brand" routerLink="/login" aria-label="Gestão Vital">
+        <span class="login-brand-mark"><svg lucideHeartPulse aria-hidden="true"></svg></span>
+        <span><strong>gestão<span>vital</span></strong><small>FARMÁCIA HOSPITALAR</small></span>
+      </a>
+      <div class="login-aside-copy">
+        <span class="login-eyebrow">CONTROLE DE ESTOQUE HOSPITALAR</span>
+        <h1>Mais clareza para cuidar do que não pode faltar.</h1>
+        <p>Acompanhe medicamentos, lotes e movimentações da sua unidade em um só lugar.</p>
+      </div>
+      <div class="login-aside-footer"><span class="login-status-dot"></span> Gestão segura por unidade hospitalar</div>
+    </aside>
+
+    <section class="login-content">
+      <div class="login-heading"><span class="login-eyebrow">BEM-VINDA(O) DE VOLTA</span><h2>Acesse sua unidade</h2><p>Entre com suas credenciais para continuar.</p></div>
+      <form class="login-form" (ngSubmit)="submit()">
+        <label class="login-label" for="login-email">E-mail</label>
+        <input id="login-email" name="email" type="email" autocomplete="username" placeholder="voce@hospital.com" [ngModel]="email()" (ngModelChange)="email.set($event)" required>
+        <div class="login-password-label"><label class="login-label" for="login-password">Senha</label><span>Credenciais da sua unidade</span></div>
+        <input id="login-password" name="password" type="password" autocomplete="current-password" placeholder="Digite sua senha" [ngModel]="password()" (ngModelChange)="password.set($event)" required>
+        @if (error()) { <p class="login-error" role="alert">{{ error() }}</p> }
+        <button class="login-submit" type="submit" [disabled]="busy()">{{ busy() ? 'Entrando…' : 'Entrar na plataforma' }}<span aria-hidden="true">→</span></button>
+      </form>
+
+      @if (demoMode) {
+        <section class="demo-access" aria-label="Credenciais de demonstração">
+          <div class="demo-access-heading"><span class="demo-indicator"></span><div><strong>Acesso de demonstração</strong><small>Escolha um perfil para preencher o formulário</small></div></div>
+          <div class="demo-profile-row"><span><strong>Farmácia</strong><small>maria@hospital.test</small></span><button type="button" (click)="fillDemoCredentials('farmacia')">Preencher</button></div>
+          <div class="demo-profile-row"><span><strong>Gestão</strong><small>gestao@hospital.test</small></span><button type="button" (click)="fillDemoCredentials('gestao')">Preencher</button></div>
+          <p>Senha sugerida: <code>demo123</code></p>
+        </section>
+      }
+
+      <footer class="login-footer"><span class="login-lock" aria-hidden="true">⌑</span><span>Acesso restrito aos usuários autorizados da unidade.</span></footer>
+    </section>
+  </section>
+</main>
