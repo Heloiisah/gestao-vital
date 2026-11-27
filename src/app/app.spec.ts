@@ -5,6 +5,10 @@ import { App } from './app';
 import { routes } from './app.routes';
 import { DemoInventoryRepository } from './features/inventory/adapters/outbound/demo/demo-inventory.repository';
 import { InventoryRepository } from './features/inventory/application/ports/inventory.repository';
+import { DemoWorkspaceRepository } from './core/workspace/adapters/demo/demo-workspace.repository';
+import { WorkspaceRepository } from './core/workspace/application/workspace.repository';
+import { AuthService } from './core/auth/auth.service';
+import { signal } from '@angular/core';
 
 describe('application routes', () => {
   beforeEach(async () => {
@@ -14,6 +18,8 @@ describe('application routes', () => {
         provideRouter(routes),
         provideHttpClient(),
         { provide: InventoryRepository, useClass: DemoInventoryRepository },
+        { provide: AuthService, useValue: { user: signal({ id: 'demo-pharmacy', name: 'Maria Silva', role: 'farmacia' }), isDemo: true, initializeSession: async () => {} } },
+        { provide: WorkspaceRepository, useFactory: () => new DemoWorkspaceRepository(() => ({ id: 'demo-pharmacy', name: 'Maria Silva', email: 'maria@hospital.test', role: 'farmacia', hospital: 'Hospital Vida Plena', unit: 'Unidade central' })) },
       ],
     }).compileComponents();
   });

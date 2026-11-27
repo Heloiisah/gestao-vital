@@ -17,6 +17,7 @@ import { MovementKind } from '../../../features/inventory/domain/inventory.model
 import { MedicineDialogComponent } from '../../../features/inventory/ui/medicine-dialog/medicine-dialog';
 import { MovementDialogComponent } from '../../../features/inventory/ui/movement-dialog/movement-dialog';
 import { PageSkeleton } from '../../../shared/ui/page-skeleton/page-skeleton';
+import { WorkspaceRepository } from '../../workspace/application/workspace.repository';
 
 type PageKey = 'dashboard' | 'medicamentos' | 'estoque' | 'movimentacoes' | 'previsoes' | 'relatorios' | 'acessos';
 
@@ -32,6 +33,7 @@ type PageKey = 'dashboard' | 'medicamentos' | 'estoque' | 'movimentacoes' | 'pre
 })
 export class WorkspaceShell {
   private readonly repository = inject(InventoryRepository);
+  private readonly workspace = inject(WorkspaceRepository);
   private readonly router = inject(Router);
   private readonly auth = inject(AuthService);
   protected readonly ui = inject(WorkspaceUiState);
@@ -63,15 +65,23 @@ export class WorkspaceShell {
     if (![30, 90, 180, 365].includes(days)) return;
     this.ui.period.set(days);
     this.ui.forecastLoading.set(true);
-    try { await this.repository.refreshForecast(days); }
-    catch (error) { this.ui.notify(error instanceof Error ? error.message : 'Previsões indisponíveis.'); }
-    finally { this.ui.forecastLoading.set(false); }
+    try {
+      const results = await Promise.allSettled([this.repository.refreshForecast(days), this.workspace.loadDashboard(days)]);
+      const failed = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
+      if (failed) this.ui.notify(failed.reason instanceof Error ? failed.reason.message : 'Não foi possível atualizar os dados do período.');
+    } finally { this.ui.forecastLoading.set(false); }
   }
 
   private async loadData(): Promise<void> {
     this.dataLoading.set(!this.demoMode);
-    try { await Promise.all([this.repository.load(), this.repository.refreshForecast(this.ui.period())]); }
-    catch (error) { this.ui.notify(error instanceof Error ? error.message : 'Não foi possível carregar os dados.'); }
-    finally { this.dataLoading.set(false); }
+    const results = await Promise.allSettled([
+      this.repository.load(),
+      this.repository.refreshForecast(this.ui.period()),
+      this.workspace.loadDashboard(this.ui.period()),
+      this.workspace.loadAlerts(),
+    ]);
+    const failed = results.find((result): result is PromiseRejectedResult => result.status === 'rejected');
+    if (failed) this.ui.notify(failed.reason instanceof Error ? failed.reason.message : 'Não foi possível carregar todos os dados.');
+    this.dataLoading.set(false);
   }
 }

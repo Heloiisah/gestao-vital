@@ -1,4 +1,25 @@
 <div class="section-intro"><div><span class="section-kicker">SESSÃO E PERFIL</span><h2>Usuários e acessos</h2><p>{{ user()?.hospital }} · {{ user()?.unit }}</p></div><button class="button button-secondary" type="button" (click)="logout()">Sair da conta</button></div>
 <section class="panel access-panel"><span class="avatar large-avatar">{{ user()?.name?.slice(0, 1) }}{{ user()?.name?.split(' ')[1]?.slice(0, 1) }}</span><div><strong>{{ user()?.name }}</strong><span>{{ user()?.email }} · {{ user()?.role === 'farmacia' ? 'Farmácia / estoque' : 'Gestão hospitalar' }}</span><small>{{ demoMode ? 'Perfil fictício para demonstração.' : 'Sessão autenticada pela API.' }}</small></div><span class="status-badge preview">{{ user()?.role }}</span></section>
+
 @if (demoMode) { <section class="role-switch"><h3>Testar permissões de interface</h3><p>Essas opções só existem no modo demonstração. O backend deve autorizar cada operação em toda requisição.</p><div><button class="button button-secondary" type="button" (click)="switchRole('farmacia')">Usar perfil de farmácia</button><button class="button button-secondary" type="button" (click)="switchRole('gestao')">Usar perfil de gestão</button></div></section> }
+
+@if (canManage()) {
+  <section class="panel user-admin-panel">
+    <div class="panel-heading"><div><div class="panel-title"><h2>Equipe da unidade</h2></div><p>Convide pessoas e gerencie seus perfis de acesso.</p></div></div>
+    <form class="user-invite-form" (ngSubmit)="invite()">
+      <label class="field-label">E-mail<input name="email" type="email" required [ngModel]="email()" (ngModelChange)="email.set($event)" placeholder="nome@hospital.com"></label>
+      <label class="field-label">Perfil<select name="role" [ngModel]="inviteRole()" (ngModelChange)="inviteRole.set($event)"><option value="farmacia">Farmácia / estoque</option><option value="gestao">Gestão hospitalar</option></select></label>
+      <label class="field-label">Unidade<input name="unit" required [ngModel]="unit()" (ngModelChange)="unit.set($event)"></label>
+      <button class="button button-primary" type="submit" [disabled]="saving()">{{ saving() ? 'Enviando…' : 'Enviar convite' }}</button>
+    </form>
+    @if (error()) { <div class="login-error" role="alert">{{ error() }}</div> }
+    @if (notice()) { <div class="inline-hint" role="status">{{ notice() }}</div> }
+    @if (loading()) { <p class="empty-state">Carregando usuários…</p> } @else {
+      <div class="table-scroll"><table><thead><tr><th>Usuário</th><th>Unidade</th><th>Perfil</th><th>Status</th><th>Acesso</th></tr></thead><tbody>
+        @for (managed of users(); track managed.id) { <tr><td class="cell-primary">{{ managed.name }}<small class="user-email">{{ managed.email }}</small></td><td>{{ managed.unit }}</td><td><select [value]="managed.role" [disabled]="managed.id === user()?.id" [attr.aria-label]="'Perfil de ' + managed.name" (change)="changeRole(managed, $any($event.target).value)"><option value="farmacia">Farmácia</option><option value="gestao">Gestão</option></select></td><td><span class="status-badge" [class.regular]="managed.status === 'active'" [class.warning]="managed.status === 'invited'" [class.critical]="managed.status === 'disabled'">{{ statusLabel(managed.status) }}</span></td><td><button type="button" class="text-button" [disabled]="managed.id === user()?.id" (click)="changeStatus(managed)">{{ managed.status === 'active' ? 'Desativar' : 'Ativar' }}</button></td></tr> } @empty { <tr><td colspan="5" class="empty-state">Nenhum usuário encontrado.</td></tr> }
+      </tbody></table></div>
+    }
+  </section>
+} @else { <div class="inline-hint"><svg lucideCircleHelp aria-hidden="true"></svg> Seu perfil não tem permissão para administrar usuários. Solicite acesso à gestão hospitalar.</div> }
+
 <div class="inline-hint"><svg lucideCircleHelp aria-hidden="true"></svg> A autorização real é responsabilidade do servidor; ocultar ações na interface não substitui a validação da API.</div>

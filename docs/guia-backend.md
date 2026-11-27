@@ -4,7 +4,7 @@ Este guia orienta a implementação de uma API segura para o fluxo de medicament
 
 ## Estado atual da integração Angular
 
-O frontend já possui `HttpInventoryRepository`, autenticação Bearer, cadastro de medicamentos, movimentação por lote, recebimento atômico de novo lote, relatórios com paginação/filtros no servidor e consulta de previsões. Configure `useDemoData: false` em `frontend/src/environments/environment.ts` para selecionar esse adaptador durante desenvolvimento. O backend deve seguir `contrato-api.md`; ainda faltam endpoints para dashboard real, alertas e administração de usuários. Enquanto esses recursos não forem definidos e implementados, essas áreas não devem ser consideradas conectadas à API.
+O frontend já possui adaptadores HTTP para estoque e movimentações, relatórios e histórico paginados, recebimento atômico, previsão, resumo de dashboard, alertas e administração de usuários. A sessão usa access token em memória e cookie HttpOnly para renovação. Configure `useDemoData: false` em `src/environments/environment.ts` para selecionar os adaptadores HTTP durante desenvolvimento. O backend deve seguir `contrato-api.md` e validar no servidor toda autenticação, permissão, escopo de unidade e operação.
 
 O código Angular separa infraestrutura compartilhada em `core`, a funcionalidade de estoque em `features/inventory`, páginas lazy-loaded com rotas, modelos de domínio, porta de aplicação e adaptadores HTTP/demonstração. Componentes de interface acessam a porta, não o `HttpClient` diretamente.
 
@@ -68,7 +68,7 @@ Usar a versão inicial `/api/v1`, HTTPS, validação de entrada, respostas de er
 3. Implementar identidade e operações de leitura do catálogo/estoque.
 4. Implementar movimentações transacionais e auditoria; validar os conflitos e a concorrência.
 5. Publicar contratos OpenAPI e conectar o `HttpInventoryRepository` do Angular, substituindo o provider de demonstração.
-6. Integrar dashboard, alertas e previsão quando as consultas e o histórico forem consistentes.
+6. Implementar e validar os contratos de dashboard, alertas, previsão e administração de usuários com perfis distintos.
 7. Fazer validação com usuários, segurança, backup e implantação controlada.
 
 ## Critério de conclusão do backend inicial

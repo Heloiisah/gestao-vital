@@ -4,7 +4,8 @@ import { AuthService } from './auth.service';
 
 export const authenticatedGuard: CanActivateFn = () => {
   const auth = inject(AuthService);
-  return auth.user() ? true : inject(Router).createUrlTree(['/login']);
+  const router = inject(Router);
+  return auth.initializeSession().then(() => auth.user() ? true : router.createUrlTree(['/login']));
 };
 
 export const guestGuard: CanActivateFn = () => {

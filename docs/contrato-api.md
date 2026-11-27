@@ -8,7 +8,7 @@ Este contrato descreve as chamadas esperadas pelo adaptador HTTP Angular. A API 
 - Datas de registro em ISO 8601 com fuso; validade em `YYYY-MM-DD`.
 - Filtros `de`/`ate` representam as datas civis do hospital/unidade autenticada, sem conversão para UTC antes de aplicar os limites.
 - Listas podem ser retornadas diretamente como array ou envelopadas em `{ "itens": [...] }`.
-- Toda rota, exceto login, requer `Authorization: Bearer <token>`.
+- Rotas de domínio requerem `Authorization: Bearer <token>`. As rotas de sessão usam credenciais conforme sua definição abaixo.
 - O escopo de hospital/unidade vem da sessão do usuário, nunca de um identificador livre confiado pelo cliente.
 - Erros devem usar `{ "erro": { "codigo": "...", "mensagem": "...", "correlacaoId": "..." } }`.
 - A autorização é obrigatória no backend em cada operação; ocultar botões no Angular não protege a API.
@@ -35,7 +35,17 @@ Resposta `200`:
 }
 ```
 
-Os nomes do objeto `usuario` são os nomes consumidos pelo cliente atual. Valores válidos para `role`: `farmacia` e `gestao`. A estratégia de expiração e renovação do token deve ser definida pelo backend; atualmente o token fica somente em memória no Angular.
+Os nomes do objeto `usuario` são os nomes consumidos pelo cliente atual. Valores válidos para `role`: `farmacia` e `gestao`. O access token fica somente em memória no Angular; a sessão pode ser restaurada com o cookie de renovação descrito abaixo.
+
+Além do corpo JSON, a resposta deve definir um cookie de renovação `HttpOnly`, `Secure`, `SameSite=Lax` e restrito ao caminho `/api/v1/auth`. O access token permanece apenas em memória no Angular. Se frontend e API estiverem em sites diferentes, use `SameSite=None; Secure`, CORS com origem explícita e credenciais habilitadas, além de proteção CSRF apropriada.
+
+### Renovar sessão
+
+`POST /auth/renovar` recebe o cookie de renovação e retorna o mesmo formato de `POST /auth/login` com um novo access token. Rotacione o cookie de renovação e invalide o anterior. O Angular chama esta rota ao iniciar a aplicação e repete uma chamada protegida uma vez após receber `401`.
+
+### Encerrar sessão
+
+`POST /auth/sair` revoga a sessão/cookie de renovação e limpa o cookie no cliente. A interface encerra a sessão local mesmo se a API estiver indisponível.
 
 ## Catálogo
 
@@ -138,6 +148,54 @@ O relatório Angular navega as páginas usando esses metadados. A exportação b
 
 Sem dados suficientes, retorne `consumoPrevisto: null`, `dadosSuficientes: false` e explique a limitação. Indisponibilidade analítica não deve impedir consultas nem movimentações de estoque; o adaptador pode sinalizar erro de previsão separadamente.
 
+## Dashboard e alertas
+
+### Resumo do dashboard
+
+`GET /dashboard/resumo?dias=30` aceita os mesmos horizontes de 30, 90, 180 ou 365 dias. Retorna agregados calculados para o escopo do usuário autenticado:
+
+```json
+{
+  "medicamentosCadastrados": 42,
+  "unidadesEmEstoque": 18240,
+  "estoqueAbaixoDoMinimo": 5,
+  "lotesProximosDaValidade": 3,
+  "consumoMensal": [
+    { "mes": "Set", "unidades": 1230 },
+    { "mes": "Out", "unidades": 1380 },
+    { "mes": "Nov", "unidades": 1110 }
+  ]
+}
+```
+
+As contagens respeitam a unidade/hospital da sessão. `consumoMensal` deve ser ordenado cronologicamente e conter somente períodos completos dentro do horizonte selecionado. Sem histórico, retorne uma lista vazia.
+
+### Alertas do estoque
+
+`GET /alertas?limite=10` retorna alertas ativos, priorizados por severidade e data:
+
+```json
+{
+  "itens": [{
+    "id": "alt_123", "titulo": "Estoque crítico", "descricao": "Amoxicilina · 12 unidades",
+    "severidade": "CRITICO", "medicamentoId": "med_123", "loteCodigo": null
+  }]
+}
+```
+
+`severidade` aceita `CRITICO`, `ATENCAO` ou `INFO`. Campos `medicamentoId` e `loteCodigo` podem ser nulos quando não se aplicarem. O cliente mostra apenas alertas retornados; geração, deduplicação e encerramento são responsabilidades do serviço.
+
+## Administração de usuários
+
+Estas rotas exigem perfil `gestao`; o servidor deve confirmar a permissão em cada chamada e restringir todos os resultados à unidade/hospital da sessão.
+
+- `GET /usuarios?pagina=1&tamanho=100` lista `{ "itens": [...] }`, com `id`, `nome`, `email`, `papel` (`farmacia` ou `gestao`), `unidade` e `status` (`ATIVO`, `CONVITE_PENDENTE` ou `INATIVO`).
+- `POST /usuarios` com `{ "email": "...", "papel": "farmacia", "unidade": "..." }` cria um convite e retorna `201`.
+- `PATCH /usuarios/{id}` com `{ "papel": "gestao" }` altera o perfil.
+- `PATCH /usuarios/{id}/status` com `{ "status": "INATIVO" }` desativa o acesso; `ATIVO` ativa um acesso ou aceita o convite conforme a política definida pelo backend.
+
+O servidor deve impedir alterações que removam o último gestor da unidade e aplicar uma política para evitar que o usuário administrador se desative ou remova o próprio privilégio.
+
 ## Códigos de erro sugeridos
 
 - `400` dados inválidos, `401` sessão ausente/expirada, `403` perfil sem permissão, `404` recurso inexistente, `409` conflito de saldo/lote/idempotência e `5xx` falha de serviço.
@@ -145,4 +203,4 @@ Sem dados suficientes, retorne `consumoPrevisto: null`, `dadosSuficientes: false
 
 ## O que falta antes de produção
 
-O contrato inicial ainda não inclui resumo de dashboard, alertas consultáveis, reset/renovação de sessão ou administração de usuários. Definir esses recursos com a equipe antes de conectá-los a uma API de produção. Em desenvolvimento, `environment.ts` usa `DemoInventoryRepository`; o build de produção troca automaticamente para `environment.production.ts`, que seleciona o adaptador HTTP e `/api/v1`. Implemente o contrato acima no backend e configure a hospedagem para encaminhar essa URL à API.
+O contrato cobre os fluxos atualmente consumidos pelo Angular. Recuperação de senha, MFA, auditoria administrativa detalhada e regras finas por unidade ainda precisam ser decididos antes de produção. Em desenvolvimento, `environment.ts` usa adaptadores de demonstração; o build de produção seleciona adaptadores HTTP e `/api/v1`. Configure a hospedagem para encaminhar essa URL à API.
