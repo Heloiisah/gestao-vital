@@ -1,3 +1,5 @@
+@use './app/app.scss';
+
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;650;700;750&display=swap');
 
 :root {
@@ -13,6 +15,7 @@
 * { box-sizing: border-box; }
 html { min-width: 320px; min-height: 100%; background: #f7f4fc; }
 body { min-width: 320px; min-height: 100vh; margin: 0; }
+app-root,app-workspace-shell { display: block; min-height: 100vh; }
 button,input,select { font: inherit; }
 button:focus-visible,a:focus-visible,input:focus-visible,select:focus-visible { outline: 3px solid #8052c5; outline-offset: 2px; }
 ::selection { color: #38216d; background: #e7d8f6; }

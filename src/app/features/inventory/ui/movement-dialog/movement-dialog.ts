@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { LucideX } from '@lucide/angular';
 import { InventoryRepository } from '../../application/ports/inventory.repository';
 import { MovementKind } from '../../domain/inventory.models';
+import { toLocalDateOnly } from '../../../../shared/utils/date-only';
 
 @Component({
   selector: 'app-movement-dialog',
@@ -21,7 +22,7 @@ export class MovementDialogComponent implements OnInit {
 
   protected readonly medicines = this.repository.medicines;
   protected readonly lots = this.repository.lots;
-  protected readonly todayDate = new Date().toISOString().slice(0, 10);
+  protected readonly todayDate = toLocalDateOnly();
   protected readonly medicineId = signal('');
   protected readonly lotId = signal('');
   protected readonly quantity = signal<number | null>(null);
@@ -30,6 +31,8 @@ export class MovementDialogComponent implements OnInit {
   protected readonly newLotExpiry = signal('');
   protected readonly newLotLocation = signal('');
   protected readonly saving = signal(false);
+  private previousRequestBody = '';
+  private idempotencyKey = '';
   protected readonly selectedLots = computed(() => this.lots().filter((lot) => lot.medicationId === this.medicineId()));
   protected readonly selectedLot = computed(() => this.lots().find((lot) => lot.id === this.lotId()) ?? null);
   protected readonly validQuantity = computed(() => {
@@ -58,10 +61,28 @@ export class MovementDialogComponent implements OnInit {
     if (!medicine || !this.validQuantity() || this.saving()) return;
     this.saving.set(true);
     try {
-      const lotId = this.lotId() === 'new'
-        ? await this.repository.createLot({ medicationId: medicine.id, code: this.newLotCode(), expiry: this.newLotExpiry(), location: this.newLotLocation() })
-        : this.lotId();
-      await this.repository.recordMovement({ medicationId: medicine.id, lotId, kind: this.kind, quantity: Number(this.quantity()), reason: this.reason() });
+      const requestBody = JSON.stringify({
+        medicationId: medicine.id, kind: this.kind, lotId: this.lotId(),
+        quantity: this.quantity(), reason: this.reason(), code: this.newLotCode(),
+        expiry: this.newLotExpiry(), location: this.newLotLocation(),
+      });
+      if (requestBody !== this.previousRequestBody) {
+        this.previousRequestBody = requestBody;
+        this.idempotencyKey = crypto.randomUUID();
+      }
+      if (this.lotId() === 'new') {
+        await this.repository.receiveLot({
+          idempotencyKey: this.idempotencyKey,
+          medicationId: medicine.id,
+          code: this.newLotCode(),
+          expiry: this.newLotExpiry(),
+          location: this.newLotLocation(),
+          quantity: Number(this.quantity()),
+          reason: this.reason(),
+        });
+      } else {
+        await this.repository.recordMovement({ idempotencyKey: this.idempotencyKey, medicationId: medicine.id, lotId: this.lotId(), kind: this.kind, quantity: Number(this.quantity()), reason: this.reason() });
+      }
       this.saved.emit(`${this.kind} registrada${this.demoMode ? ' no modo demonstração' : ''}.`);
       this.closed.emit();
     } catch (error) {

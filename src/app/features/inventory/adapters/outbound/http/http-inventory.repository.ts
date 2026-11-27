@@ -1,9 +1,10 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, Signal, signal } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import { environment } from '../../../../../../environments/environment';
-import { CreateLotInput, CreateMedicineInput, Forecast, Medicine, Movement, RecordMovementInput, StockLot } from '../../../domain/inventory.models';
+import { CreateMedicineInput, Forecast, Medicine, Movement, MovementPage, MovementSearch, ReceiveLotInput, RecordMovementInput, StockLot } from '../../../domain/inventory.models';
 import { InventoryRepository } from '../../../application/ports/inventory.repository';
+import { addDaysToDateOnly, toLocalDateOnly } from '../../../../../shared/utils/date-only';
 
 interface ApiMedicine {
   id: string; nome: string; principioAtivo: string; apresentacao: string;
@@ -17,13 +18,18 @@ interface ApiMovement {
   medicamento: string; tipo: 'ENTRADA' | 'SAIDA'; quantidade: number;
   registradoEm: string; registradoPor: { nome: string }; lote: string; motivo: string;
 }
+interface ApiMovementPage {
+  itens: ApiMovement[];
+  pagina: number;
+  tamanho: number;
+  totalItens: number;
+  totalPaginas: number;
+}
 interface ApiForecast {
   medicamentoId: string; medicamento: string; geradoEm: string; horizonteDias: number;
   consumoPrevisto: number | null; unidade: string; confianca: number | null;
   dadosSuficientes: boolean; metodo: string | null; observacao: string | null;
 }
-interface CreatedResource { id: string; }
-
 function listFrom<T>(value: T[] | { itens: T[] }): T[] {
   return Array.isArray(value) ? value : value.itens;
 }
@@ -48,11 +54,11 @@ export class HttpInventoryRepository extends InventoryRepository {
       const [medicines, lots, movements] = await Promise.all([
         firstValueFrom(this.http.get<ApiMedicine[] | { itens: ApiMedicine[] }>(`${this.baseUrl}/medicamentos`)),
         firstValueFrom(this.http.get<ApiLot[] | { itens: ApiLot[] }>(`${this.baseUrl}/estoque/lotes`)),
-        firstValueFrom(this.http.get<ApiMovement[] | { itens: ApiMovement[] }>(`${this.baseUrl}/movimentacoes?limite=50`)),
+        this.searchMovements({ search: '', kind: 'Todos', from: '', to: '', page: 1, pageSize: 50 }),
       ]);
       this.medicineState.set(listFrom(medicines).map((item) => this.toMedicine(item)));
       this.lotState.set(listFrom(lots).map((item) => this.toLot(item)));
-      this.movementState.set(listFrom(movements).map((item) => this.toMovement(item)));
+      this.movementState.set(movements.items);
     } catch (error) {
       throw this.toUserError(error, 'Não foi possível carregar os dados do estoque.');
     }
@@ -80,6 +86,40 @@ export class HttpInventoryRepository extends InventoryRepository {
     }
   }
 
+  async searchMovements(query: MovementSearch): Promise<MovementPage> {
+    try {
+      let params = new HttpParams()
+        .set('pagina', query.page)
+        .set('tamanho', query.pageSize);
+      if (query.search.trim()) params = params.set('busca', query.search.trim());
+      if (query.kind !== 'Todos') params = params.set('tipo', query.kind === 'Entrada' ? 'ENTRADA' : 'SAIDA');
+      if (query.from) params = params.set('de', query.from);
+      if (query.to) params = params.set('ate', query.to);
+      const response = await firstValueFrom(this.http.get<ApiMovementPage>(`${this.baseUrl}/movimentacoes`, { params }));
+      return {
+        items: response.itens.map((item) => this.toMovement(item)),
+        page: response.pagina,
+        pageSize: response.tamanho,
+        totalItems: response.totalItens,
+        totalPages: response.totalPaginas,
+      };
+    } catch (error) {
+      throw this.toUserError(error, 'Não foi possível consultar as movimentações.');
+    }
+  }
+
+  async exportMovements(query: Omit<MovementSearch, 'page' | 'pageSize'>): Promise<Movement[]> {
+    const pageSize = 100;
+    const firstPage = await this.searchMovements({ ...query, page: 1, pageSize });
+    const items = [...firstPage.items];
+    for (let start = 2; start <= firstPage.totalPages; start += 4) {
+      const pageNumbers = Array.from({ length: Math.min(4, firstPage.totalPages - start + 1) }, (_, index) => start + index);
+      const pages = await Promise.all(pageNumbers.map((page) => this.searchMovements({ ...query, page, pageSize })));
+      for (const page of pages) items.push(...page.items);
+    }
+    return items;
+  }
+
   async recordMovement(input: RecordMovementInput): Promise<void> {
     try {
       await firstValueFrom(this.http.post(`${this.baseUrl}/movimentacoes`, {
@@ -88,7 +128,7 @@ export class HttpInventoryRepository extends InventoryRepository {
         tipo: input.kind === 'Entrada' ? 'ENTRADA' : 'SAIDA',
         quantidade: input.quantity,
         motivo: input.reason,
-      }, { headers: { 'Idempotency-Key': crypto.randomUUID() } }));
+      }, { headers: { 'Idempotency-Key': input.idempotencyKey } }));
       await this.load();
     } catch (error) {
       throw this.toUserError(error, 'Não foi possível registrar a movimentação.');
@@ -109,18 +149,19 @@ export class HttpInventoryRepository extends InventoryRepository {
     }
   }
 
-  async createLot(input: CreateLotInput): Promise<string> {
+  async receiveLot(input: ReceiveLotInput): Promise<void> {
     try {
-      const response = await firstValueFrom(this.http.post<CreatedResource>(`${this.baseUrl}/estoque/lotes`, {
+      await firstValueFrom(this.http.post(`${this.baseUrl}/estoque/lotes/recebimentos`, {
         medicamentoId: input.medicationId,
         codigo: input.code,
         validade: input.expiry,
         localizacao: input.location,
-      }));
+        quantidade: input.quantity,
+        motivo: input.reason,
+      }, { headers: { 'Idempotency-Key': input.idempotencyKey } }));
       await this.load();
-      return response.id;
     } catch (error) {
-      throw this.toUserError(error, 'Não foi possível cadastrar o lote.');
+      throw this.toUserError(error, 'Não foi possível registrar o recebimento do lote.');
     }
   }
 
@@ -135,10 +176,8 @@ export class HttpInventoryRepository extends InventoryRepository {
   }
 
   private toLot(item: ApiLot): StockLot {
-    const today = new Date().toISOString().slice(0, 10);
-    const expiryLimit = new Date();
-    expiryLimit.setDate(expiryLimit.getDate() + 30);
-    const nearExpiry = expiryLimit.toISOString().slice(0, 10);
+    const today = toLocalDateOnly();
+    const nearExpiry = addDaysToDateOnly(today, 30);
     return {
       id: item.id, medicationId: item.medicamentoId, medicine: item.medicamento,
       lot: item.codigo, expiry: item.validade, quantity: item.quantidade,

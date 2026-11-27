@@ -1,0 +1,12 @@
+<div class="section-intro"><div><span class="section-kicker">PLANEJAMENTO</span><h2>Consumo e previsões</h2><p>Dados históricos e estimativas para apoiar o planejamento de reposição.</p></div><span class="status-badge preview">{{ demoMode ? 'Demonstração' : 'Serviço analítico' }}</span></div>
+@if (ui.forecastLoading()) { <app-page-skeleton variant="forecast" /> } @else {
+<section class="panel forecast-detail">
+  @if (forecast(); as result) {
+    <div class="forecast-detail-head"><div><span class="section-kicker">HORIZONTE · {{ result.horizonDays }} DIAS</span><h2>{{ result.enoughData && result.predictedConsumption !== null ? (result.predictedConsumption | number) + ' ' + result.unit : 'Previsão indisponível' }}</h2><p>Atualizado {{ result.generatedAt | date:'dd/MM/yyyy HH:mm' }} · {{ result.medicine }}</p></div><span class="metric-icon blue"><svg lucideChartNoAxesCombined aria-hidden="true"></svg></span></div>
+    @if (result.enoughData && result.predictedConsumption !== null) {
+      <div class="forecast-disclaimer"><strong>Estimativa disponível</strong><span>A previsão de {{ result.predictedConsumption | number }} {{ result.unit }} cobre os próximos {{ result.horizonDays }} dias. Método: {{ result.method ?? 'não informado' }}.</span></div>
+    } @else { <div class="forecast-disclaimer"><strong>Dados insuficientes para uma estimativa confiável.</strong><span>{{ result.note ?? 'Registre histórico de consumo e tente novamente mais tarde.' }}</span></div> }
+    <div class="forecast-disclaimer"><strong>Origem da informação</strong><span>Confiança: {{ result.confidence === null ? 'não informada' : (result.confidence | percent) }}. Use a estimativa para planejamento de estoque; ela não substitui decisões clínicas.</span></div>
+  } @else { <div class="forecast-disclaimer"><strong>Nenhuma previsão disponível.</strong><span>O backend ainda não retornou estimativas para este período.</span></div> }
+</section>
+}

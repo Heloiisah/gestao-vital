@@ -33,11 +33,29 @@ export interface Movement {
 }
 
 export interface RecordMovementInput {
+  idempotencyKey: string;
   medicationId: string;
   lotId: string;
   kind: MovementKind;
   quantity: number;
   reason: string;
+}
+
+export interface MovementSearch {
+  search: string;
+  kind: MovementKind | 'Todos';
+  from: string;
+  to: string;
+  page: number;
+  pageSize: number;
+}
+
+export interface MovementPage {
+  items: Movement[];
+  page: number;
+  pageSize: number;
+  totalItems: number;
+  totalPages: number;
 }
 
 export interface CreateMedicineInput {
@@ -47,11 +65,14 @@ export interface CreateMedicineInput {
   minimum: number;
 }
 
-export interface CreateLotInput {
+export interface ReceiveLotInput {
+  idempotencyKey: string;
   medicationId: string;
   code: string;
   expiry: string;
   location: string;
+  quantity: number;
+  reason: string;
 }
 
 export interface Forecast {

@@ -1,6 +1,7 @@
 import { Signal, signal } from '@angular/core';
-import { CreateLotInput, CreateMedicineInput, Forecast, Medicine, Movement, RecordMovementInput, StockLot } from '../../../domain/inventory.models';
+import { CreateMedicineInput, Forecast, Medicine, Movement, MovementPage, MovementSearch, ReceiveLotInput, RecordMovementInput, StockLot } from '../../../domain/inventory.models';
 import { InventoryRepository } from '../../../application/ports/inventory.repository';
+import { addDaysToDateOnly, localDateOnlyFromInstant, toLocalDateOnly } from '../../../../../shared/utils/date-only';
 
 export class DemoInventoryRepository extends InventoryRepository {
   private readonly medicineState = signal<Medicine[]>([
@@ -48,7 +49,7 @@ export class DemoInventoryRepository extends InventoryRepository {
     const lot = this.lotState().find((item) => item.id === input.lotId && item.medicationId === input.medicationId);
     if (!medicine || !lot) throw new Error('Selecione um lote válido para este medicamento.');
     if (!Number.isInteger(input.quantity) || input.quantity < 1) throw new Error('Informe uma quantidade inteira maior que zero.');
-    if (input.kind === 'Saída' && lot.expiry < new Date().toISOString().slice(0, 10)) throw new Error('Não é permitido registrar saída de lote vencido.');
+    if (input.kind === 'Saída' && lot.expiry < toLocalDateOnly()) throw new Error('Não é permitido registrar saída de lote vencido.');
     if (input.kind === 'Saída' && input.quantity > lot.quantity) throw new Error('A quantidade excede o saldo disponível neste lote.');
 
     const stock = medicine.stock + (input.kind === 'Entrada' ? input.quantity : -input.quantity);
@@ -62,20 +63,45 @@ export class DemoInventoryRepository extends InventoryRepository {
     ]);
   }
 
-  async createLot(input: CreateLotInput): Promise<string> {
+  async searchMovements(query: MovementSearch): Promise<MovementPage> {
+    const items = this.filterMovements(query);
+    const start = (query.page - 1) * query.pageSize;
+    return {
+      items: items.slice(start, start + query.pageSize),
+      page: query.page,
+      pageSize: query.pageSize,
+      totalItems: items.length,
+      totalPages: Math.ceil(items.length / query.pageSize),
+    };
+  }
+
+  async exportMovements(query: Omit<MovementSearch, 'page' | 'pageSize'>): Promise<Movement[]> {
+    return this.filterMovements({ ...query, page: 1, pageSize: Number.MAX_SAFE_INTEGER });
+  }
+
+  async receiveLot(input: ReceiveLotInput): Promise<void> {
     const medicine = this.medicineState().find((item) => item.id === input.medicationId);
     if (!medicine) throw new Error('Medicamento não encontrado.');
-    if (!input.code.trim() || !input.location.trim() || !input.expiry) throw new Error('Informe código, validade e localização do lote.');
-    if (input.expiry < new Date().toISOString().slice(0, 10)) throw new Error('A validade do lote precisa ser futura.');
+    if (!input.code.trim() || !input.location.trim() || !input.expiry || !input.reason.trim()) throw new Error('Informe código, validade, localização e motivo do lote.');
+    if (!Number.isInteger(input.quantity) || input.quantity < 1) throw new Error('Informe uma quantidade inteira maior que zero.');
+    if (input.expiry < toLocalDateOnly()) throw new Error('A validade do lote não pode estar vencida.');
     if (this.lotState().some((lot) => lot.medicationId === medicine.id && lot.lot.toLocaleLowerCase('pt-BR') === input.code.trim().toLocaleLowerCase('pt-BR'))) {
       throw new Error('Este código de lote já está cadastrado para o medicamento.');
     }
     const id = `lot-${Date.now()}`;
+    const expiryLimit = addDaysToDateOnly(toLocalDateOnly(), 30);
     this.lotState.update((items) => [...items, {
       id, medicationId: medicine.id, medicine: medicine.name, lot: input.code.trim(),
-      expiry: input.expiry, quantity: 0, location: input.location.trim(), status: 'Regular',
+      expiry: input.expiry, quantity: input.quantity, location: input.location.trim(),
+      status: input.expiry <= expiryLimit ? 'A vencer' : 'Regular',
     }]);
-    return id;
+    const stock = medicine.stock + input.quantity;
+    const status: Medicine['status'] = stock <= medicine.minimum * 0.5 ? 'Crítico' : stock <= medicine.minimum ? 'Estoque baixo' : 'Regular';
+    this.medicineState.update((items) => items.map((item) => item.id === medicine.id ? { ...item, stock, status } : item));
+    this.movementState.update((items) => [{
+      medicine: medicine.name, kind: 'Entrada', quantity: input.quantity,
+      date: new Date().toISOString(), person: 'Maria Silva', lot: input.code.trim(), reason: input.reason.trim(),
+    }, ...items]);
   }
 
   async createMedicine(input: CreateMedicineInput): Promise<void> {
@@ -89,5 +115,15 @@ export class DemoInventoryRepository extends InventoryRepository {
       presentation: input.presentation.trim() || 'Não informada', stock: 0,
       minimum: input.minimum, unit: 'un.', status: 'Crítico',
     }]);
+  }
+
+  private filterMovements(query: Omit<MovementSearch, 'page' | 'pageSize'> & Partial<Pick<MovementSearch, 'page' | 'pageSize'>>): Movement[] {
+    const term = query.search.trim().toLocaleLowerCase('pt-BR');
+    return this.movementState().filter((item) => {
+      const matchesTerm = !term || `${item.medicine} ${item.person} ${item.reason} ${item.lot}`.toLocaleLowerCase('pt-BR').includes(term);
+      const matchesKind = query.kind === 'Todos' || item.kind === query.kind;
+      const date = localDateOnlyFromInstant(item.date);
+      return matchesTerm && matchesKind && (!query.from || date >= query.from) && (!query.to || date <= query.to);
+    });
   }
 }

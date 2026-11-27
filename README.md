@@ -19,12 +19,14 @@ npm run build
 
 ## Funcionalidades
 
-- Catálogo, consulta de lotes/validade, histórico de movimentações e exportação CSV filtrável.
-- Entrada e saída ligadas a lote, incluindo cadastro de lote recebido.
+- Catálogo, consulta de lotes/validade e histórico de movimentações.
+- Entrada e saída ligadas a lote; recebimento de lote novo cria o lote e movimenta o saldo atomicamente.
+- Relatórios com filtros no servidor, paginação e exportação de todos os resultados filtrados.
+- Rotas por página com carregamento lazy e navegação direta por URL.
 - Login e perfis; no modo demonstração, alternância local para visualizar restrições da interface.
 - Consulta do serviço de previsões por horizonte, exibindo ausência de estimativa quando não há histórico suficiente.
 - Adaptadores locais e HTTP para dados de estoque, com token Bearer enviado pelo interceptor.
 
 O build de desenvolvimento seleciona `DemoInventoryRepository`; os registros são fictícios e vivem em memória. O build de produção troca para `environment.production.ts`, seleciona o adaptador HTTP e aponta para `/api/v1`. Para conectar, implemente [`../docs/contrato-api.md`](../docs/contrato-api.md) e encaminhe essa URL à API. A estrutura detalhada está em `src/app/core` e `src/app/features/inventory`.
 
-O contrato atual ainda não cobre os dados reais do dashboard, serviço de alertas, paginação integral/exportação de relatórios ou administração de usuários. A interface os identifica como pendentes no modo API.
+O contrato ainda não cobre os dados reais do dashboard, serviço de alertas ou administração de usuários. A interface identifica essas áreas como pendentes no modo API.
