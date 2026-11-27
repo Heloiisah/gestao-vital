@@ -27,6 +27,6 @@ npm run build
 - Consulta do serviço de previsões por horizonte, exibindo ausência de estimativa quando não há histórico suficiente.
 - Adaptadores locais e HTTP para dados de estoque, com token Bearer enviado pelo interceptor.
 
-O build de desenvolvimento seleciona `DemoInventoryRepository`; os registros são fictícios e vivem em memória. O build de produção troca para `environment.production.ts`, seleciona o adaptador HTTP e aponta para `/api/v1`. Para conectar, implemente [`../docs/contrato-api.md`](../docs/contrato-api.md) e encaminhe essa URL à API. A estrutura detalhada está em `src/app/core` e `src/app/features/inventory`.
+O build de desenvolvimento seleciona `DemoInventoryRepository`; os registros são fictícios e vivem em memória. O build de produção troca para `environment.production.ts`, seleciona o adaptador HTTP e aponta para `/api/v1`. Para conectar, implemente o [contrato da API](docs/contrato-api.md); o [guia de desenvolvimento do backend](docs/guia-backend.md) detalha a arquitetura e a sequência sugerida. A estrutura detalhada está em `src/app/core` e `src/app/features/inventory`.
 
 O contrato ainda não cobre os dados reais do dashboard, serviço de alertas ou administração de usuários. A interface identifica essas áreas como pendentes no modo API.
