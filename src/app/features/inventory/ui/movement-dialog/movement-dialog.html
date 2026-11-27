@@ -1,0 +1,30 @@
+<div class="modal-backdrop" (click)="closed.emit()" (keydown.escape)="closed.emit()">
+  <section class="modal" role="dialog" aria-modal="true" aria-labelledby="movement-title" (click)="$event.stopPropagation()">
+    <div class="modal-heading"><div><span class="section-kicker">ESTOQUE</span><h2 id="movement-title">Registrar {{ kind.toLocaleLowerCase('pt-BR') }}</h2></div><button type="button" class="icon-button close-button" aria-label="Fechar" (click)="closed.emit()"><svg lucideX aria-hidden="true"></svg></button></div>
+    <p class="modal-note">{{ demoMode ? 'Registro de demonstração em memória. O saldo do lote será atualizado localmente.' : 'O servidor validará saldo, validade e permissão antes de confirmar.' }}</p>
+    <form (ngSubmit)="submit()">
+      <label class="field-label">Medicamento
+        <select name="medicine" [ngModel]="medicineId()" (ngModelChange)="changeMedicine($event)" required>
+          @for (medicine of medicines(); track medicine.id) { <option [value]="medicine.id">{{ medicine.name }}</option> }
+        </select>
+      </label>
+      <div class="field-grid">
+        <label class="field-label">Tipo<select name="kind" [ngModel]="kind" disabled><option>{{ kind }}</option></select></label>
+        <label class="field-label">Quantidade<input name="quantity" type="number" min="1" step="1" [ngModel]="quantity()" (ngModelChange)="quantity.set($event)" required></label>
+      </div>
+      <label class="field-label">Lote
+        <select name="lot" [ngModel]="lotId()" (ngModelChange)="lotId.set($event)" required>
+          <option value="">Selecione um lote</option>
+          @for (lot of selectedLots(); track lot.id) { <option [value]="lot.id" [disabled]="kind === 'Saída' && lot.expiry < todayDate">{{ lot.lot }} · {{ lot.quantity }} un. · vence {{ lot.expiry | date:'dd/MM/yyyy' }}</option> }
+          @if (kind === 'Entrada') { <option value="new">＋ Cadastrar lote recebido</option> }
+        </select>
+      </label>
+      @if (lotId() === 'new') {
+        <div class="field-grid"><label class="field-label">Código do lote<input name="newLotCode" [ngModel]="newLotCode()" (ngModelChange)="newLotCode.set($event)" required></label><label class="field-label">Validade<input name="newLotExpiry" type="date" [ngModel]="newLotExpiry()" (ngModelChange)="newLotExpiry.set($event)" required></label></div>
+        <label class="field-label">Localização<input name="newLotLocation" [ngModel]="newLotLocation()" (ngModelChange)="newLotLocation.set($event)" required></label>
+      } @else if (selectedLot(); as lot) { <small class="lot-balance">Saldo deste lote: {{ lot.quantity }} unidades · validade {{ lot.expiry | date:'dd/MM/yyyy' }}</small> }
+      <label class="field-label">Motivo<input name="reason" [ngModel]="reason()" (ngModelChange)="reason.set($event)" required></label>
+      <div class="modal-actions"><button type="button" class="button button-secondary" (click)="closed.emit()">Cancelar</button><button class="button button-primary" type="submit" [disabled]="!validQuantity() || saving()">{{ saving() ? 'Salvando…' : 'Confirmar movimentação' }}</button></div>
+    </form>
+  </section>
+</div>

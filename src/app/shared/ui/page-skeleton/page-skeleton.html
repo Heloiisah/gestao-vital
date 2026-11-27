@@ -1,0 +1,18 @@
+<section class="skeleton-layout" role="status" aria-live="polite" aria-busy="true">
+  <span class="visually-hidden">Carregando conteúdo…</span>
+  <div class="skeleton-content" aria-hidden="true">
+    @if (variant === 'dashboard') {
+      <div class="metric-skeletons">
+        @for (item of [1, 2, 3, 4]; track item) {
+          <div class="ghost-card metric-ghost"><i class="ghost-line short"></i><i class="ghost-line value"></i><i class="ghost-line medium"></i></div>
+        }
+      </div>
+      <div class="dashboard-skeletons"><div class="ghost-card chart-ghost"><i class="ghost-line medium"></i><i class="ghost-block chart-block"></i><i class="ghost-line short"></i></div><div class="ghost-card list-ghost"><i class="ghost-line medium"></i>@for (row of [1, 2, 3]; track row) { <i class="ghost-line row"></i> }</div></div>
+      <div class="ghost-card table-ghost"><i class="ghost-line medium"></i>@for (row of [1, 2, 3]; track row) { <i class="ghost-line row"></i> }</div>
+    } @else if (variant === 'forecast') {
+      <div class="ghost-card forecast-ghost"><i class="ghost-line medium"></i><i class="ghost-line value"></i><i class="ghost-block chart-block"></i><i class="ghost-line long"></i></div>
+    } @else {
+      <div class="ghost-card table-ghost"><i class="ghost-line medium"></i><div class="filter-ghosts"><i class="ghost-line"></i><i class="ghost-line"></i><i class="ghost-line"></i></div>@for (row of [1, 2, 3, 4, 5]; track row) { <i class="ghost-line row"></i> }</div>
+    }
+  </div>
+</section>

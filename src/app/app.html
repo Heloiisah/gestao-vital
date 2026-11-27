@@ -1,0 +1,201 @@
+@if (!user()) {
+  <main class="login-screen"><section class="login-card"><div class="login-brand"><span class="brand-mark"><svg lucideHeartPulse aria-hidden="true"></svg></span><div><strong>gestão<span>vital</span></strong><small>FARMÁCIA HOSPITALAR</small></div></div><h1>Acesse sua unidade</h1><p>Entre para acompanhar estoque, movimentações e previsões.</p><form (ngSubmit)="login()"><label class="field-label">E-mail<input name="email" type="email" autocomplete="username" [ngModel]="loginEmail()" (ngModelChange)="loginEmail.set($event)" required></label><label class="field-label">Senha<input name="password" type="password" autocomplete="current-password" [ngModel]="loginPassword()" (ngModelChange)="loginPassword.set($event)" required></label>@if (loginError()) { <p class="login-error" role="alert">{{ loginError() }}</p> }<button class="button button-primary" type="submit">Entrar</button></form><small class="login-foot">A autenticação e as permissões são verificadas pelo servidor.</small></section></main>
+} @else {
+<div class="app-shell">
+  <aside class="sidebar" aria-label="Navegação principal">
+    <a class="brand" href="#inicio" (click)="$event.preventDefault(); navigate('dashboard')" aria-label="Gestão Vital, início">
+      <span class="brand-mark" aria-hidden="true"><svg lucideHeartPulse></svg></span>
+      <span><strong>gestão<span>vital</span></strong><small>FARMÁCIA HOSPITALAR</small></span>
+    </a>
+
+    <div class="nav-caption">MENU PRINCIPAL</div>
+    <nav class="nav-list">
+      <button type="button" class="nav-link" [class.active]="activePage() === 'dashboard'" [attr.aria-current]="activePage() === 'dashboard' ? 'page' : null" (click)="navigate('dashboard')"><svg lucideLayoutDashboard class="nav-icon" aria-hidden="true"></svg><span>Dashboard</span></button>
+      <div class="nav-group-title"><svg lucideUsers class="nav-icon" aria-hidden="true"></svg><span>Cadastros</span><svg lucideChevronDown class="group-chevron" aria-hidden="true"></svg></div>
+      <button type="button" class="nav-link nav-child" [class.active]="activePage() === 'acessos'" (click)="navigate('acessos')"><svg lucideUserRound class="nav-icon" aria-hidden="true"></svg><span>Pessoas e acessos</span></button>
+      <button type="button" class="nav-link nav-child" [class.active]="activePage() === 'medicamentos'" (click)="navigate('medicamentos')"><svg lucidePill class="nav-icon" aria-hidden="true"></svg><span>Medicamentos</span></button>
+      <div class="nav-group-title"><svg lucideBoxes class="nav-icon" aria-hidden="true"></svg><span>Estoque</span><span class="nav-count">{{ lowStockCount() | number:'2.0' }}</span></div>
+      <button type="button" class="nav-link nav-child" [class.active]="activePage() === 'estoque'" (click)="navigate('estoque')"><svg lucideSearch class="nav-icon" aria-hidden="true"></svg><span>Consultar estoque</span></button>
+      @if (canOperateStock()) {
+        <button type="button" class="nav-link nav-child" (click)="openMovement('Entrada')"><svg lucideArrowDownToLine class="nav-icon" aria-hidden="true"></svg><span>Entradas</span></button>
+        <button type="button" class="nav-link nav-child" (click)="openMovement('Saída')"><svg lucideArrowUpFromLine class="nav-icon" aria-hidden="true"></svg><span>Saídas</span></button>
+      }
+      <button type="button" class="nav-link nav-child" [class.active]="activePage() === 'estoque'" (click)="navigate('estoque')"><svg lucidePackage class="nav-icon" aria-hidden="true"></svg><span>Lotes e validade</span></button>
+      <div class="nav-group-title"><svg lucideFileText class="nav-icon" aria-hidden="true"></svg><span>Consumo</span><svg lucideChevronDown class="group-chevron" aria-hidden="true"></svg></div>
+      <button type="button" class="nav-link nav-child" [class.active]="activePage() === 'movimentacoes'" (click)="navigate('movimentacoes')"><svg lucideFileText class="nav-icon" aria-hidden="true"></svg><span>Histórico de consumo</span></button>
+      <button type="button" class="nav-link nav-child" [class.active]="activePage() === 'previsoes'" (click)="navigate('previsoes')"><svg lucideChartColumnIncreasing class="nav-icon" aria-hidden="true"></svg><span>Análise de consumo</span></button>
+      <button type="button" class="nav-link" [class.active]="activePage() === 'previsoes'" (click)="navigate('previsoes')"><svg lucideChartNoAxesCombined class="nav-icon" aria-hidden="true"></svg><span>Previsão de demanda</span></button>
+      <button type="button" class="nav-link" [class.active]="activePage() === 'relatorios'" (click)="navigate('relatorios')"><svg lucideFileText class="nav-icon" aria-hidden="true"></svg><span>Relatórios</span></button>
+      <button type="button" class="nav-link" [class.active]="activePage() === 'acessos'" (click)="navigate('acessos')"><svg lucideSettings class="nav-icon" aria-hidden="true"></svg><span>Configurações</span></button>
+    </nav>
+
+    <div class="sidebar-bottom">
+      <div class="support-card"><span class="support-icon"><svg lucideCircleHelp aria-hidden="true"></svg></span><div><strong>Precisa de ajuda?</strong><small>Consulte o guia do sistema</small></div><svg lucideArrowRight class="support-arrow" aria-hidden="true"></svg></div>
+      <div class="hospital"><span class="hospital-mark"><svg lucideBuildingComplex aria-hidden="true"></svg></span><span><strong>Hospital Vida Plena</strong><small>Unidade central</small></span><button type="button" aria-label="Trocar unidade" (click)="notify('Esta demonstração está configurada para uma unidade.')"><svg lucideChevronDown aria-hidden="true"></svg></button></div>
+    </div>
+  </aside>
+
+  <main class="main-area">
+    <header class="topbar">
+      <label class="search-box"><svg lucideSearch aria-hidden="true"></svg><input type="search" aria-label="Buscar no sistema" placeholder="Buscar medicamento, lote ou movimentação..." [value]="query()" (input)="query.set($any($event.target).value)"></label>
+      <div class="topbar-actions">
+        <span class="demo-pill"><span></span> {{ demoMode ? 'Modo demonstração' : 'API conectada' }}</span>
+        <div class="notification-wrap">
+          <button type="button" class="icon-button notification-button" aria-label="Notificações: 3 alertas" [attr.aria-expanded]="showNotifications()" (click)="showNotifications.update(value => !value)"><svg lucideBell aria-hidden="true"></svg><i>3</i></button>
+          @if (showNotifications()) {
+            <div class="notification-popover" role="region" aria-label="Notificações recentes">
+              <strong>Alertas recentes</strong>
+              <p><span class="dot red"></span> Amoxicilina abaixo do mínimo</p>
+              <p><span class="dot amber"></span> Lote OMP-24107 a vencer</p>
+              <p><span class="dot blue"></span> Previsão de consumo atualizada</p>
+              <button type="button" class="text-button" (click)="navigate('estoque')">Ver estoque e alertas <svg lucideArrowRight class="inline-icon" aria-hidden="true"></svg></button>
+            </div>
+          }
+        </div>
+        <span class="top-divider"></span>
+        <button class="profile" type="button" (click)="navigate('acessos')" [attr.aria-label]="'Perfil de ' + user()?.name"><span class="avatar">{{ user()?.name?.slice(0, 1) }}{{ user()?.name?.split(' ')[1]?.slice(0, 1) }}</span><span class="profile-copy"><strong>{{ user()?.name }}</strong><small>{{ user()?.role === 'farmacia' ? 'Farmácia hospitalar' : 'Gestão hospitalar' }}</small></span><svg lucideChevronDown class="chevron" aria-hidden="true"></svg></button>
+      </div>
+    </header>
+
+    <div class="page-content">
+      <div class="page-heading">
+        <div><div class="eyebrow">HOSPITAL VIDA PLENA <span>/</span> FARMÁCIA</div><h1>{{ pageTitle() }}</h1><p class="page-subtitle">Acompanhe o estoque e antecipe as necessidades da farmácia.</p></div>
+        <div class="heading-actions">
+          @if (activePage() === 'dashboard' || activePage() === 'previsoes') {
+            <label class="period-select"><svg lucideCalendarDays aria-hidden="true"></svg><select aria-label="Período do painel" [value]="period()" (change)="setForecastPeriod($any($event.target).value)"><option [value]="30">30 dias</option><option [value]="90">3 meses</option><option [value]="180">6 meses</option><option [value]="365">12 meses</option></select><svg lucideChevronDown class="chevron" aria-hidden="true"></svg></label>
+          }
+          @if (canOperateStock() && (activePage() === 'dashboard' || activePage() === 'medicamentos')) {
+            <button type="button" class="button button-primary" (click)="showMedicineForm.set(true)"><svg lucidePlus aria-hidden="true"></svg> Novo medicamento</button>
+          } @else if (canOperateStock() && (activePage() === 'estoque' || activePage() === 'movimentacoes')) {
+            <button type="button" class="button button-primary" (click)="openMovement('Entrada')"><svg lucidePlus aria-hidden="true"></svg> Registrar movimentação</button>
+          }
+        </div>
+      </div>
+
+      @if (dataLoading()) {
+        <app-page-skeleton [variant]="activePage() === 'dashboard' ? 'dashboard' : activePage() === 'previsoes' ? 'forecast' : 'table'" />
+      } @else {
+      @for (page of [activePage()]; track page) {
+      <div class="page-transition" animate.enter="page-enter" animate.leave="page-leave">
+      @if (page === 'dashboard') {
+        @if (demoMode && showDemoNotice()) { <div class="demo-notice"><svg lucideCircleHelp class="notice-icon" aria-hidden="true"></svg><span><strong>Dados ilustrativos.</strong> Os números e registros desta tela são exemplos locais, não refletem um hospital real.</span><button type="button" class="icon-button" aria-label="Fechar aviso" (click)="showDemoNotice.set(false)"><svg lucideX aria-hidden="true"></svg></button></div> }
+
+        <section class="metric-grid" aria-label="Indicadores do estoque">
+          <article class="metric-card"><div class="metric-top"><span class="metric-label">Medicamentos cadastrados</span><span class="metric-icon purple"><svg lucidePill aria-hidden="true"></svg></span></div><strong class="metric-value">{{ registeredCount() }}</strong><div class="metric-foot"><span class="trend neutral">Catálogo ativo</span><span class="micro-bars purple-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div></article>
+          <article class="metric-card"><div class="metric-top"><span class="metric-label">Unidades em estoque</span><span class="metric-icon green"><svg lucidePackage aria-hidden="true"></svg></span></div><strong class="metric-value">{{ availableUnits() | number }}</strong><div class="metric-foot"><span class="trend positive"><svg lucideTrendingUp aria-hidden="true"></svg> Estoque consolidado</span><span class="micro-bars green-bars" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div></article>
+          <article class="metric-card"><div class="metric-top"><span class="metric-label">Precisam de atenção</span><span class="metric-icon orange"><svg lucideTriangleAlert aria-hidden="true"></svg></span></div><strong class="metric-value">{{ lowStockCount() | number:'2.0' }}</strong><div class="metric-foot"><span class="trend warning">Abaixo do estoque mínimo</span><svg lucideTrendingUp class="metric-spark orange-spark" aria-hidden="true"></svg></div></article>
+          <article class="metric-card"><div class="metric-top"><span class="metric-label">Lotes próximos da validade</span><span class="metric-icon rose"><svg lucideCalendarDays aria-hidden="true"></svg></span></div><strong class="metric-value">{{ expiringLotCount() | number:'2.0' }}</strong><div class="metric-foot"><span class="trend danger">Próximos 30 dias</span><svg lucideTrendingUp class="metric-spark rose-spark" aria-hidden="true"></svg></div></article>
+        </section>
+
+        <section class="dashboard-grid">
+          <article class="panel consumption-panel">
+            <div class="panel-heading"><div><div class="panel-title"><svg lucideChartColumnIncreasing class="panel-title-icon blue-text" aria-hidden="true"></svg><h2>Consumo de medicamentos</h2></div><p>Unidades dispensadas por mês</p></div><button type="button" class="period-select compact" (click)="navigate('previsoes')">Ver análise <svg lucideArrowRight class="inline-icon" aria-hidden="true"></svg></button></div>
+            @if (demoMode) {
+            <div class="chart-wrap" role="img" aria-label="Gráfico demonstrativo de consumo mensal entre junho e novembro.">
+              <div class="y-labels"><span>4.000</span><span>3.000</span><span>2.000</span><span>1.000</span><span>0</span></div>
+              <div class="chart-area"><div class="chart-grid-lines"><i></i><i></i><i></i><i></i><i></i></div><svg viewBox="0 0 600 190" preserveAspectRatio="none" aria-hidden="true"><defs><linearGradient id="areaFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0%" stop-color="#8052c5" stop-opacity=".18"/><stop offset="100%" stop-color="#8052c5" stop-opacity="0"/></linearGradient></defs><path d="M8 119 C55 99 63 88 120 82 S175 111 228 108 S291 53 348 55 S401 82 456 71 S517 73 592 59 L592 180 L8 180Z" fill="url(#areaFill)"/><path d="M8 119 C55 99 63 88 120 82 S175 111 228 108 S291 53 348 55 S401 82 456 71 S517 73 592 59" fill="none" stroke="#8052c5" stroke-width="3" stroke-linecap="round"/><g fill="#fff" stroke="#8052c5" stroke-width="3"><circle cx="8" cy="119" r="4"/><circle cx="120" cy="82" r="4"/><circle cx="228" cy="108" r="4"/><circle cx="348" cy="55" r="4"/><circle cx="456" cy="71" r="4"/><circle cx="592" cy="59" r="4"/></g></svg><div class="x-labels"><span>Jun</span><span>Jul</span><span>Ago</span><span>Set</span><span>Out</span><span>Nov</span></div></div>
+            </div>
+            <div class="chart-legend"><span><i></i> Consumo registrado</span><small>Dados demonstrativos · {{ periodLabel() }}</small></div>
+            } @else { <p class="empty-state">A série histórica do dashboard ainda não faz parte do contrato da API.</p> }
+          </article>
+
+          <article class="panel alerts-panel">
+            <div class="panel-heading"><div><div class="panel-title"><svg lucideBell class="panel-title-icon amber-text" aria-hidden="true"></svg><h2>Alertas para acompanhar</h2></div><p>Prioridades do estoque</p></div><button type="button" class="link-button" (click)="navigate('estoque')">Ver estoque <svg lucideArrowRight class="inline-icon" aria-hidden="true"></svg></button></div>
+            @if (demoMode) { <div class="alert-list">
+              <div class="alert-row alert-critical"><span class="alert-symbol"><svg lucideCircleAlert aria-hidden="true"></svg></span><div class="alert-copy"><strong>Estoque crítico</strong><small>Amoxicilina 500 mg · 82 un.</small></div><span class="status-badge critical">Crítico</span></div>
+              <div class="alert-row alert-warning"><span class="alert-symbol"><svg lucideClock aria-hidden="true"></svg></span><div class="alert-copy"><strong>Validade próxima</strong><small>Omeprazol 20 mg · lote OMP-24107</small></div><span class="status-badge warning">Em 21 dias</span></div>
+              <div class="alert-row alert-info"><span class="alert-symbol"><svg lucideCircleCheck aria-hidden="true"></svg></span><div class="alert-copy"><strong>Reposição a avaliar</strong><small>Soro fisiológico 0,9% abaixo do mínimo</small></div>@if (canOperateStock()) { <button type="button" class="mini-action" (click)="openMovement('Entrada')">Registrar entrada</button> }</div>
+            </div>
+            <div class="alert-foot"><span class="dot amber"></span> Alertas demonstrativos baseados nos limites e validades cadastrados.</div> }
+            @else { <p class="empty-state">A consulta de alertas será conectada quando o endpoint de alertas estiver definido.</p> }
+          </article>
+
+          <article class="panel movements-panel">
+            <div class="panel-heading"><div><div class="panel-title"><svg lucideArrowRightLeft class="panel-title-icon green-text" aria-hidden="true"></svg><h2>Movimentações recentes</h2></div><p>Últimos registros do estoque</p></div><button type="button" class="link-button" (click)="navigate('movimentacoes')">Ver histórico <svg lucideArrowRight class="inline-icon" aria-hidden="true"></svg></button></div>
+            <div class="table-scroll"><table><thead><tr><th>Medicamento</th><th>Tipo</th><th>Quantidade</th><th>Registro</th><th>Responsável</th></tr></thead><tbody>
+              @for (movement of movements().slice(0, 4); track $index) { <tr><td class="cell-primary">{{ movement.medicine }}</td><td><span class="movement-tag" [class.in-tag]="movement.kind === 'Entrada'" [class.out-tag]="movement.kind === 'Saída'">{{ movement.kind }}</span></td><td>{{ movement.quantity }} un.</td><td>{{ movement.date | date:"dd/MM/yyyy HH:mm" }}</td><td>{{ movement.person }}</td></tr> }
+            </tbody></table></div>
+          </article>
+
+          <article class="panel forecast-panel">
+            <div class="panel-heading"><div><div class="panel-title"><svg lucideChartNoAxesCombined class="panel-title-icon blue-text" aria-hidden="true"></svg><h2>Previsão de consumo</h2></div><p>Estimativa para os próximos 30 dias</p></div><span class="status-badge preview">Prévia</span></div>
+            @if (forecastLoading()) { <app-page-skeleton variant="forecast" /> } @else {
+            <div class="forecast-value"><div><small>Consumo estimado · {{ periodLabel() }}</small><strong>{{ forecast()?.enoughData ? (forecast()?.predictedConsumption | number) : "—" }} <span>{{ forecast()?.unit ?? "unidades" }}</span></strong><span class="forecast-change">{{ forecast()?.enoughData ? "Estimativa fornecida pelo serviço analítico" : "Histórico insuficiente para estimar com confiança" }}</span></div>@if (demoMode) {<svg viewBox="0 0 260 86" preserveAspectRatio="none" aria-hidden="true"><path d="M2 72 C28 67 32 53 58 58 S82 45 110 48 S135 21 160 31 S190 42 208 28 S238 27 258 10" fill="none" stroke="#8052c5" stroke-width="2.5"/><g fill="#fff" stroke="#8052c5" stroke-width="2"><circle cx="2" cy="72" r="3"/><circle cx="58" cy="58" r="3"/><circle cx="110" cy="48" r="3"/><circle cx="160" cy="31" r="3"/><circle cx="208" cy="28" r="3"/><circle cx="258" cy="10" r="3"/></g></svg>}</div>
+            <div class="forecast-note"><svg lucideLightbulb aria-hidden="true"></svg><span><strong>{{ forecast()?.enoughData ? "Previsão analítica" : "Previsão indisponível" }}.</strong> {{ forecast()?.note ?? "A API ainda não retornou uma previsão para este período." }} @if (forecast()?.confidence !== null && forecast()?.confidence !== undefined) { Confiança: {{ (forecast()?.confidence ?? 0) | percent }}. }</span></div>
+            <button type="button" class="forecast-link" (click)="navigate('previsoes')">Entender a previsão <svg lucideArrowRight class="inline-icon" aria-hidden="true"></svg></button>
+            }
+          </article>
+        </section>
+      } @else if (page === 'medicamentos') {
+        <div class="section-intro"><div><span class="section-kicker">CATÁLOGO</span><h2>Medicamentos cadastrados</h2><p>Consulte apresentações, princípios ativos e níveis mínimos configurados.</p></div><span class="record-count">{{ filteredMedicines().length }} registros</span></div>
+        <section class="panel data-panel"><div class="table-scroll"><table><thead><tr><th>Medicamento</th><th>Princípio ativo</th><th>Apresentação</th><th>Estoque atual</th><th>Mínimo</th><th>Situação</th></tr></thead><tbody>
+          @for (medicine of filteredMedicines(); track medicine.id) { <tr><td class="cell-primary">{{ medicine.name }}</td><td>{{ medicine.ingredient }}</td><td>{{ medicine.presentation }}</td><td>{{ medicine.stock }} {{ medicine.unit }}</td><td>{{ medicine.minimum }} {{ medicine.unit }}</td><td><span class="status-badge" [class.regular]="medicine.status === 'Regular'" [class.warning]="medicine.status === 'Estoque baixo'" [class.critical]="medicine.status === 'Crítico'">{{ medicine.status }}</span></td></tr> } @empty { <tr><td colspan="6" class="empty-state">Nenhum medicamento encontrado para “{{ query() }}”.</td></tr> }
+        </tbody></table></div></section>
+      } @else if (page === 'estoque') {
+        <div class="section-intro"><div><span class="section-kicker">CONTROLE DE LOTES</span><h2>Estoque por lote e validade</h2><p>Acompanhe quantidades, localização e prazos de validade.</p></div><span class="record-count">{{ filteredLots().length }} lotes</span></div>
+        <div class="summary-strip"><div><span class="summary-dot red"></span><strong>{{ lowStockCount() }}</strong><small>medicamentos abaixo do mínimo</small></div><div><span class="summary-dot amber"></span><strong>{{ expiringLotCount() }}</strong><small>lotes próximos da validade</small></div><div><span class="summary-dot green"></span><strong>{{ availableUnits() | number }}</strong><small>unidades registradas</small></div></div>
+        <section class="panel data-panel"><div class="table-scroll"><table><thead><tr><th>Medicamento</th><th>Lote</th><th>Validade</th><th>Quantidade</th><th>Localização</th><th>Situação</th></tr></thead><tbody>
+          @for (lot of filteredLots(); track lot.lot) { <tr><td class="cell-primary">{{ lot.medicine }}</td><td>{{ lot.lot }}</td><td>{{ lot.expiry | date:"dd/MM/yyyy" }}</td><td>{{ lot.quantity }} un.</td><td>{{ lot.location }}</td><td><span class="status-badge" [class.regular]="lot.status === 'Regular'" [class.warning]="lot.status === 'A vencer'" [class.critical]="lot.status === 'Crítico'">{{ lot.status }}</span></td></tr> } @empty { <tr><td colspan="6" class="empty-state">Nenhum lote encontrado para “{{ query() }}”.</td></tr> }
+        </tbody></table></div></section>
+        <div class="inline-hint"><svg lucideCircleHelp aria-hidden="true"></svg> Os registros desta tela são fictícios e servem para demonstrar a interface.</div>
+      } @else if (page === 'movimentacoes') {
+        <div class="section-intro"><div><span class="section-kicker">HISTÓRICO</span><h2>Entradas e saídas</h2><p>Registros de movimentação e responsáveis pela operação.</p></div><span class="record-count">{{ filteredMovements().length }} registros</span></div>
+        <section class="panel data-panel"><div class="table-scroll"><table><thead><tr><th>Medicamento</th><th>Movimentação</th><th>Quantidade</th><th>Data e hora</th><th>Responsável</th></tr></thead><tbody>
+          @for (movement of filteredMovements(); track $index) { <tr><td class="cell-primary">{{ movement.medicine }}</td><td><span class="movement-tag" [class.in-tag]="movement.kind === 'Entrada'" [class.out-tag]="movement.kind === 'Saída'">{{ movement.kind }}</span></td><td>{{ movement.quantity }} un.</td><td>{{ movement.date | date:"dd/MM/yyyy HH:mm" }}</td><td>{{ movement.person }}</td></tr> } @empty { <tr><td colspan="5" class="empty-state">Nenhuma movimentação encontrada para “{{ query() }}”.</td></tr> }
+        </tbody></table></div></section>
+        @if (canOperateStock()) { <div class="action-row"><button type="button" class="button button-secondary" (click)="openMovement('Entrada')"><svg lucidePlus aria-hidden="true"></svg> Registrar entrada</button><button type="button" class="button button-primary" (click)="openMovement('Saída')"><svg lucideArrowUpFromLine aria-hidden="true"></svg> Registrar saída</button></div> }
+      } @else if (page === 'previsoes') {
+        <div class="section-intro"><div><span class="section-kicker">PLANEJAMENTO</span><h2>Consumo e previsões</h2><p>Dados históricos e estimativas para apoiar o planejamento de reposição.</p></div><span class="status-badge preview">{{ demoMode ? "Demonstração" : "Serviço analítico" }}</span></div>
+        @if (forecastLoading()) { <app-page-skeleton variant="forecast" /> } @else {
+        <section class="panel forecast-detail">
+          @if (forecast(); as result) {
+            <div class="forecast-detail-head"><div><span class="section-kicker">HORIZONTE · {{ result.horizonDays }} DIAS</span><h2>{{ result.enoughData && result.predictedConsumption !== null ? (result.predictedConsumption | number) + ' ' + result.unit : 'Previsão indisponível' }}</h2><p>Atualizado {{ result.generatedAt | date:'dd/MM/yyyy HH:mm' }} · {{ result.medicine }}</p></div><span class="metric-icon blue"><svg lucideChartNoAxesCombined aria-hidden="true"></svg></span></div>
+            @if (result.enoughData && result.predictedConsumption !== null) {
+              <div class="forecast-placeholder"><div class="placeholder-bars"><i style="height:42%"></i><i style="height:55%"></i><i style="height:48%"></i><i style="height:68%"></i><i style="height:61%"></i><i style="height:80%"></i><i style="height:72%"></i><i style="height:90%"></i></div><div class="placeholder-labels"><span>Histórico</span><span>Horizonte estimado · {{ result.horizonDays }} dias</span></div></div>
+            } @else {
+              <div class="forecast-disclaimer"><strong>Dados insuficientes para uma estimativa confiável.</strong><span>{{ result.note ?? 'Registre histórico de consumo e tente novamente mais tarde.' }}</span></div>
+            }
+            <div class="forecast-disclaimer"><strong>Origem da informação</strong><span>Método: {{ result.method ?? 'não informado' }} · Confiança: {{ result.confidence === null ? 'não informada' : (result.confidence | percent) }}. Use a estimativa para planejamento de estoque; ela não substitui decisões clínicas.</span></div>
+          } @else {
+            <div class="forecast-disclaimer"><strong>Nenhuma previsão disponível.</strong><span>O backend ainda não retornou estimativas para este período.</span></div>
+          }
+        </section>
+        }
+      } @else if (page === 'relatorios') {
+        <div class="section-intro"><div><span class="section-kicker">ACOMPANHAMENTO</span><h2>Relatórios do estoque</h2><p>Filtre movimentações e exporte os registros visíveis.</p></div><button type="button" class="button button-primary" (click)="exportMovements()"><svg lucideArrowDownToLine aria-hidden="true"></svg> Exportar CSV</button></div>
+        <div class="report-filters">
+          <label class="field-label">Buscar<input type="search" [value]="reportSearch()" (input)="reportSearch.set($any($event.target).value)" placeholder="Medicamento, responsável, lote ou motivo"></label>
+          <label class="field-label">Tipo<select [value]="reportKind()" (change)="reportKind.set($any($event.target).value)"><option>Todos</option><option>Entrada</option><option>Saída</option></select></label>
+          <label class="field-label">De<input type="date" [value]="reportFrom()" (input)="reportFrom.set($any($event.target).value)"></label>
+          <label class="field-label">Até<input type="date" [value]="reportTo()" (input)="reportTo.set($any($event.target).value)"></label>
+          <span class="record-count">{{ filteredReportMovements().length }} registros</span>
+        </div>
+        <section class="panel data-panel report-table"><div class="table-scroll"><table><thead><tr><th>Medicamento</th><th>Tipo</th><th>Lote</th><th>Quantidade</th><th>Data</th><th>Responsável</th><th>Motivo</th></tr></thead><tbody>@for (movement of filteredReportMovements(); track $index) { <tr><td class="cell-primary">{{ movement.medicine }}</td><td>{{ movement.kind }}</td><td>{{ movement.lot }}</td><td>{{ movement.quantity }}</td><td>{{ movement.date | date:'dd/MM/yyyy HH:mm' }}</td><td>{{ movement.person }}</td><td>{{ movement.reason }}</td></tr> } @empty { <tr><td colspan="7" class="empty-state">Nenhum registro corresponde aos filtros.</td></tr> }</tbody></table></div></section>
+        <section class="report-grid"><button type="button" class="panel report-card" (click)="navigate('estoque')"><span class="report-icon blue"><svg lucidePackage aria-hidden="true"></svg></span><span><strong>Posição de estoque</strong><small>Quantidades atuais por medicamento e lote</small></span><svg lucideArrowRight class="report-arrow" aria-hidden="true"></svg></button><button type="button" class="panel report-card" (click)="navigate('movimentacoes')"><span class="report-icon green"><svg lucideArrowRightLeft aria-hidden="true"></svg></span><span><strong>Movimentações</strong><small>Entradas, saídas e histórico de registros</small></span><svg lucideArrowRight class="report-arrow" aria-hidden="true"></svg></button><button type="button" class="panel report-card" (click)="navigate('previsoes')"><span class="report-icon purple"><svg lucideChartNoAxesCombined aria-hidden="true"></svg></span><span><strong>Consumo e previsões</strong><small>Histórico e estimativas demonstrativas</small></span><svg lucideArrowRight class="report-arrow" aria-hidden="true"></svg></button></section>
+        <div class="inline-hint"><svg lucideCircleHelp aria-hidden="true"></svg> A exportação CSV respeita os filtros aplicados acima.</div>
+      } @else {
+        <div class="section-intro"><div><span class="section-kicker">SESSÃO E PERFIL</span><h2>Usuários e acessos</h2><p>{{ user()?.hospital }} · {{ user()?.unit }}</p></div><button class="button button-secondary" type="button" (click)="logout()">Sair da conta</button></div>
+        <section class="panel access-panel"><span class="avatar large-avatar">{{ user()?.name?.slice(0, 1) }}{{ user()?.name?.split(' ')[1]?.slice(0, 1) }}</span><div><strong>{{ user()?.name }}</strong><span>{{ user()?.email }} · {{ user()?.role === 'farmacia' ? 'Farmácia / estoque' : 'Gestão hospitalar' }}</span><small>{{ demoMode ? 'Perfil fictício para demonstração.' : 'Sessão autenticada pela API.' }}</small></div><span class="status-badge preview">{{ user()?.role }}</span></section>
+        @if (demoMode) {
+          <section class="role-switch"><h3>Testar permissões de interface</h3><p>Essas opções só existem no modo demonstração. O backend deve autorizar cada operação em toda requisição.</p><div><button class="button button-secondary" type="button" (click)="switchDemoRole('farmacia')">Usar perfil de farmácia</button><button class="button button-secondary" type="button" (click)="switchDemoRole('gestao')">Usar perfil de gestão</button></div></section>
+        }
+        <div class="inline-hint"><svg lucideCircleHelp aria-hidden="true"></svg> A autorização real é responsabilidade do servidor; ocultar ações na interface não substitui a validação da API.</div>
+      }
+      </div>
+      }
+      }
+      <footer class="page-footer"><span>Gestão Vital <span>·</span> Gestão inteligente de medicamentos</span><span>{{ demoMode ? "Modo demonstração · dados fictícios" : "Sessão conectada à API" }}</span></footer>
+    </div>
+  </main>
+</div>
+
+@if (showMovementForm()) {
+  <app-movement-dialog [kind]="movementKind()" [demoMode]="demoMode" (closed)="showMovementForm.set(false)" (saved)="notify($event)" />
+}
+
+@if (showMedicineForm()) {
+  <app-medicine-dialog (closed)="showMedicineForm.set(false)" (saved)="notify($event)" />
+}
+
+@if (toast()) { <div class="toast" role="status"><svg lucideCheck aria-hidden="true"></svg><span>{{ toast() }}</span></div> }
+}

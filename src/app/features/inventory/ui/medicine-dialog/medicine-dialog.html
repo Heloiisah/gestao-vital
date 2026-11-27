@@ -1,0 +1,12 @@
+<div class="modal-backdrop" (click)="closed.emit()" (keydown.escape)="closed.emit()">
+  <section class="modal" role="dialog" aria-modal="true" aria-labelledby="medicine-title" (click)="$event.stopPropagation()">
+    <div class="modal-heading"><div><span class="section-kicker">CATÁLOGO</span><h2 id="medicine-title">Novo medicamento</h2></div><button type="button" class="icon-button close-button" aria-label="Fechar" (click)="closed.emit()">×</button></div>
+    <p class="modal-note">Cadastro demonstrativo. Confirme informações e regras com a equipe da farmácia antes de usar em produção.</p>
+    <form (ngSubmit)="submit()">
+      <label class="field-label">Nome e concentração<input name="name" type="text" placeholder="Ex.: Dipirona 500 mg" [ngModel]="name()" (ngModelChange)="name.set($event)" required></label>
+      <label class="field-label">Princípio ativo<input name="ingredient" type="text" [ngModel]="ingredient()" (ngModelChange)="ingredient.set($event)"></label>
+      <div class="field-grid"><label class="field-label">Apresentação<input name="presentation" type="text" placeholder="Ex.: Comprimido" [ngModel]="presentation()" (ngModelChange)="presentation.set($event)"></label><label class="field-label">Estoque mínimo<input name="minimum" type="number" min="1" [ngModel]="minimum()" (ngModelChange)="minimum.set($event)"></label></div>
+      <div class="modal-actions"><button type="button" class="button button-secondary" (click)="closed.emit()">Cancelar</button><button class="button button-primary" type="submit" [disabled]="!name().trim() || saving()">{{ saving() ? 'Salvando…' : 'Adicionar medicamento' }}</button></div>
+    </form>
+  </section>
+</div>
